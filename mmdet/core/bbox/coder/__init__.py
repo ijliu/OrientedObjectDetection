@@ -8,8 +8,13 @@ from .pseudo_bbox_coder import PseudoBBoxCoder
 from .tblr_bbox_coder import TBLRBBoxCoder
 from .yolo_bbox_coder import YOLOBBoxCoder
 
+
+from .delta_midpointoffset_rbbox_coder import MidpointOffsetCoder
+
 __all__ = [
     'BaseBBoxCoder', 'PseudoBBoxCoder', 'DeltaXYWHBBoxCoder',
     'LegacyDeltaXYWHBBoxCoder', 'TBLRBBoxCoder', 'YOLOBBoxCoder',
-    'BucketingBBoxCoder', 'DistancePointBBoxCoder'
+    'BucketingBBoxCoder', 'DistancePointBBoxCoder', 
+
+    'MidpointOffsetCoder'
 ]

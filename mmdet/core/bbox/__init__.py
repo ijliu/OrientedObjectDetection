@@ -14,7 +14,7 @@ from .transforms import (bbox2distance, bbox2result, bbox2roi,
                          bbox_mapping_back, bbox_rescale, bbox_xyxy_to_cxcywh,
                          distance2bbox, find_inside_bboxes, roi2bbox)
 
-from.oriented_transforms import (poly2obb_np_le90)
+from.oriented_transforms import (poly2obb_np_le90, obb2xyxy_le90)
 
 __all__ = [
     'bbox_overlaps', 'BboxOverlaps2D', 'BaseAssigner', 'MaxIoUAssigner',
@@ -29,5 +29,5 @@ __all__ = [
     'bbox_xyxy_to_cxcywh', 'RegionAssigner', 'find_inside_bboxes',
 
 
-    'poly2obb_np_le90'
+    'poly2obb_np_le90', 'obb2xyxy_le90'
 ]

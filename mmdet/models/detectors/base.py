@@ -245,6 +245,7 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
                   DDP, it means the batch size on each GPU), which is used for
                   averaging the logs.
         """
+        # self.forward()
         losses = self(**data)
         loss, log_vars = self._parse_losses(losses)
 

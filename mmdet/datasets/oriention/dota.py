@@ -1,19 +1,10 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import contextlib
-import io
-import itertools
-import logging
 import os.path as osp
 import glob
 import os
 import tempfile
-import warnings
-from collections import OrderedDict
 
-import mmcv
 import numpy as np
-from mmcv.utils import print_log
-from terminaltables import AsciiTable
 
 from mmdet.core import eval_recalls, poly2obb_np_le90
 from mmdet.datasets.builder import DATASETS
@@ -33,14 +24,20 @@ class DOTADataset(CustomDataset):
                (255, 193, 193), (0, 51, 153), (255, 250, 205), (0, 139, 139),
                (255, 255, 0), (147, 116, 116), (0, 0, 255)]
 
+    def __init__(self, 
+                ann_file, 
+                pipeline,
+                difficulty = 100,
+                **kwargs):
+        self.difficulty = difficulty
+        super(DOTADataset, self).__init__(ann_file, pipeline,**kwargs)
+
     def load_annotations(self, ann_folder):
-        """Load annotation from COCO style annotation file.
+        """Load annotation from annotation file.
 
         Args:
             ann_folder (str): Path of annotation file.
 
-        Returns:
-            list[dict]: Annotation info from COCO api.
         """
         cls_map = {c: i for i, c in enumerate(self.CLASSES)}
         ann_files = glob.glob(ann_folder + '/*.txt')
@@ -79,7 +76,7 @@ class DOTADataset(CustomDataset):
                         bbox_info = si.split()
                         poly = np.array(bbox_info[:8], dtype=np.float32)
                         try:
-                            x, y, w, h, a = poly2obb_np_le90(poly, self.version)
+                            x, y, w, h, a = poly2obb_np_le90(poly)
                         except:  # noqa: E722
                             continue
                         cls_name = bbox_info[8]
@@ -125,21 +122,6 @@ class DOTADataset(CustomDataset):
 
         self.img_ids = [*map(lambda x: x['filename'][:-4], data_infos)]
         return data_infos
-
-    def get_ann_info(self, idx):
-        """Get COCO annotation by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Annotation info of specified index.
-        """
-
-        img_id = self.data_infos[idx]['id']
-        ann_ids = self.coco.get_ann_ids(img_ids=[img_id])
-        ann_info = self.coco.load_anns(ann_ids)
-        return self._parse_ann_info(self.data_infos[idx], ann_info)
 
     def _filter_imgs(self):
         """Filter images without ground truths."""

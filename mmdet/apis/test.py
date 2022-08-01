@@ -13,7 +13,6 @@ from mmcv.runner import get_dist_info
 
 from mmdet.core import encode_mask_results
 
-
 def single_gpu_test(model,
                     data_loader,
                     show=False,

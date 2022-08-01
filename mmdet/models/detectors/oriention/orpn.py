@@ -4,6 +4,10 @@ import warnings
 import mmcv
 import torch
 from mmcv.image import tensor2imgs
+import cv2
+import numpy as np
+
+from mmcv.image import imread, imwrite
 
 from mmdet.core import bbox_mapping
 from mmdet.models.builder import DETECTORS, build_backbone, build_head, build_neck
@@ -139,7 +143,7 @@ class ORPN(BaseDetector):
                                                 flip_direction)
         return [proposal.cpu().numpy() for proposal in proposal_list]
 
-    def show_result(self, data, result, top_k=20, **kwargs):
+    def show_result(self, data, result, top_k=200, **kwargs):
         """Show RPN proposals on the image.
 
         Args:
@@ -162,5 +166,22 @@ class ORPN(BaseDetector):
             kwargs['colors'] = 'green'
             # print(kwargs.keys())
             # kwargs['colors'] = kwargs.pop('bbox_color', 'green')
+        img = imread(data)
+        img = np.ascontiguousarray(img)
 
-        mmcv.imshow_bboxes(data, result, top_k=top_k, **kwargs)
+        if isinstance(result, np.ndarray):
+            result = [result]
+
+        for _bboxes in result:
+            top_k = top_k if top_k < len(_bboxes) else len(_bboxes)
+            for i in range(top_k):
+                x,y,w,h = _bboxes[i][:4]
+                x1 = x - w/2
+                y1 = y - h/2
+                x2 = x + w/2
+                y2 = y + h/2
+                cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0,255,0),1)
+                cv2.circle(img, (int(x), int(y)), 3,(0,0,255), 1)
+        imwrite(img, kwargs["out_file"])
+        # exit()
+        # mmcv.imshow_bboxes(data, result, top_k=top_k, **kwargs)

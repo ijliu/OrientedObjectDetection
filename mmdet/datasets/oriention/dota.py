@@ -7,6 +7,7 @@ import tempfile
 import numpy as np
 
 from mmdet.core import eval_recalls, poly2obb_np_le90
+from mmdet.core.evaluation import eval_rbbox_recall
 from mmdet.datasets.builder import DATASETS
 from mmdet.datasets.custom import CustomDataset
 
@@ -169,59 +170,62 @@ class DOTADataset(CustomDataset):
 
     def evaluate(self,
                  results,
-                 metric='bbox',
+                 metric='mAP',
                  logger=None,
-                 jsonfile_prefix=None,
-                 classwise=False,
                  proposal_nums=(100, 300, 1000),
-                 iou_thrs=None,
-                 metric_items=None):
-        """Evaluation in COCO protocol.
+                 iou_thr=0.5,
+                 scale_ranges=None,
+                 nproc=4):
+        """Evaluate the dataset.
 
         Args:
-            results (list[list | tuple]): Testing results of the dataset.
-            metric (str | list[str]): Metrics to be evaluated. Options are
-                'bbox', 'segm', 'proposal', 'proposal_fast'.
-            logger (logging.Logger | str | None): Logger used for printing
+            results (list): Testing results of the dataset.
+            metric (str | list[str]): Metrics to be evaluated.
+            logger (logging.Logger | None | str): Logger used for printing
                 related information during evaluation. Default: None.
-            jsonfile_prefix (str | None): The prefix of json files. It includes
-                the file path and the prefix of filename, e.g., "a/b/prefix".
-                If not specified, a temp file will be created. Default: None.
-            classwise (bool): Whether to evaluating the AP for each class.
             proposal_nums (Sequence[int]): Proposal number used for evaluating
                 recalls, such as recall@100, recall@1000.
                 Default: (100, 300, 1000).
-            iou_thrs (Sequence[float], optional): IoU threshold used for
-                evaluating recalls/mAPs. If set to a list, the average of all
-                IoUs will also be computed. If not specified, [0.50, 0.55,
-                0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] will be used.
+            iou_thr (float | list[float]): IoU threshold. It must be a float
+                when evaluating mAP, and can be a list when evaluating recall.
+                Default: 0.5.
+            scale_ranges (list[tuple] | None): Scale ranges for evaluating mAP.
                 Default: None.
-            metric_items (list[str] | str, optional): Metric items that will
-                be returned. If not specified, ``['AR@100', 'AR@300',
-                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
-                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
-                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
-                ``metric=='bbox' or metric=='segm'``.
-
-        Returns:
-            dict[str, float]: COCO style evaluation metric.
+            nproc (int): Processes used for computing TP and FP.
+                Default: 4.
         """
+        nproc = min(nproc, os.cpu_count())
+        if not isinstance(metric, str):
+            assert len(metric) == 1
+            metric = metric[0]
+        allowed_metrics = ['mAP', 'recall']
+        if metric not in allowed_metrics:
+            raise KeyError(f'metric {metric} is not supported')
+        annotations = [self.get_ann_info(i) for i in range(len(self))]
+        eval_results = {}
+        if metric == 'mAP':
+            assert isinstance(iou_thr, float)
+            # mean_ap, _ = eval_rbbox_map(
+            #     results,
+            #     annotations,
+            #     scale_ranges=scale_ranges,
+            #     iou_thr=iou_thr,
+            #     dataset=self.CLASSES,
+            #     logger=logger,
+            #     nproc=nproc)
+            # eval_results['mAP'] = mean_ap
+        elif metric == 'recall':
+            assert isinstance(iou_thr, float)
+            mean_ap = eval_rbbox_recall(
+                results,
+                annotations,
+                scale_ranges=scale_ranges,
+                iou_thrs=iou_thr,
+                dataset=self.CLASSES,
+                logger=logger,
+                nproc=nproc)
+            eval_results['recall'] = mean_ap
+        else:
+            raise NotImplementedError
 
-        metrics = metric if isinstance(metric, list) else [metric]
-        allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
-        for metric in metrics:
-            if metric not in allowed_metrics:
-                raise KeyError(f'metric {metric} is not supported')
-
-        coco_gt = self.coco
-        self.cat_ids = coco_gt.get_cat_ids(cat_names=self.CLASSES)
-
-        result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
-        eval_results = self.evaluate_det_segm(results, result_files, coco_gt,
-                                              metrics, logger, classwise,
-                                              proposal_nums, iou_thrs,
-                                              metric_items)
-
-        if tmp_dir is not None:
-            tmp_dir.cleanup()
         return eval_results

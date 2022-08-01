@@ -175,6 +175,7 @@ class OrientedRPNHead(AnchorHead):
         label_weights = label_weights.reshape(-1)
         cls_score = cls_score.permute(0, 2, 3,
                                       1).reshape(-1, self.cls_out_channels)
+
         loss_cls = self.loss_cls(
             cls_score, labels, label_weights, avg_factor=num_total_samples)
 
@@ -423,23 +424,27 @@ class OrientedRPNHead(AnchorHead):
         scores = torch.cat(mlvl_scores)
         anchors = torch.cat(mlvl_valid_anchors)
         rpn_bbox_pred = torch.cat(mlvl_bboxes)
+
+        # 对 box 解码
         proposals = self.bbox_coder.decode(
             anchors, rpn_bbox_pred, max_shape=img_shape)
         ids = torch.cat(level_ids)
 
         if cfg.min_bbox_size >= 0:
-            w = proposals[:, 2] - proposals[:, 0]
-            h = proposals[:, 3] - proposals[:, 1]
+            w = proposals[:, 2]
+            h = proposals[:, 3]
             valid_mask = (w > cfg.min_bbox_size) & (h > cfg.min_bbox_size)
             if not valid_mask.all():
                 proposals = proposals[valid_mask]
                 scores = scores[valid_mask]
                 ids = ids[valid_mask]
 
-        # if proposals.numel() > 0:
-        #     hproposals = obb2xyxy_le90(proposals)
-        #     dets, keep = batched_nms(hproposals, scores, ids, cfg.nms)
-        # else:
-        #     return proposals.new_zeros(0, 6)
-        # return dets[:cfg.max_per_img]
-        return proposals[:cfg.max_per_img]
+        if proposals.numel() > 0:
+            hproposals = obb2xyxy_le90(proposals)
+            _, keep = batched_nms(hproposals, scores, ids, cfg.nms)
+        else:
+            return proposals.new_zeros(0, 6)
+
+        dets = torch.cat([proposals, scores[:, None]], dim=1)
+        dets = dets[keep]
+        return dets[:cfg.max_per_img]

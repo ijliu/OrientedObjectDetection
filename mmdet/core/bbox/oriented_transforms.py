@@ -111,7 +111,7 @@ def poly2obb_le90(polys):
     angles = polys.new_zeros(polys.shape[0])
     angles[edge1 > edge2] = angles1[edge1 > edge2]
     angles[edge1 <= edge2] = angles2[edge1 <= edge2]
-    angles = norm_angle(angles, 'le90')
+    angles = norm_angle(angles)
     x_ctr = (pt1[..., 0] + pt3[..., 0]) / 2.0
     y_ctr = (pt1[..., 1] + pt3[..., 1]) / 2.0
     edges = torch.stack([edge1, edge2], dim=1)

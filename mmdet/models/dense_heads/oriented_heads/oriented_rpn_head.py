@@ -371,7 +371,7 @@ class OrientedRPNHead(AnchorHead):
                 # be consistent with other head since mmdet v2.0. In mmdet v2.0
                 # to v2.4 we keep BG label as 0 and FG label as 1 in rpn head.
                 scores = rpn_cls_score.softmax(dim=1)[:, 0]
-            rpn_bbox_pred = rpn_bbox_pred.permute(1, 2, 0).reshape(-1, 4)
+            rpn_bbox_pred = rpn_bbox_pred.permute(1, 2, 0).reshape(-1, self.reg_dim)
 
             anchors = mlvl_anchors[level_idx]
             if 0 < nms_pre < scores.shape[0]:
@@ -436,9 +436,10 @@ class OrientedRPNHead(AnchorHead):
                 scores = scores[valid_mask]
                 ids = ids[valid_mask]
 
-        if proposals.numel() > 0:
-            dets, _ = batched_nms(proposals, scores, ids, cfg.nms)
-        else:
-            return proposals.new_zeros(0, 5)
-
-        return dets[:cfg.max_per_img]
+        # if proposals.numel() > 0:
+        #     hproposals = obb2xyxy_le90(proposals)
+        #     dets, keep = batched_nms(hproposals, scores, ids, cfg.nms)
+        # else:
+        #     return proposals.new_zeros(0, 6)
+        # return dets[:cfg.max_per_img]
+        return proposals[:cfg.max_per_img]

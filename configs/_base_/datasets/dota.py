@@ -13,6 +13,21 @@ train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_bboxes']),
 ]
 
+test_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(
+        type='MultiScaleFlipAug',
+        img_scale=(1024, 1024),
+        flip=False,
+        transforms=[
+            dict(type='RResize'),
+            dict(type='Normalize', **img_norm_cfg),
+            dict(type='Pad', size_divisor=32),
+            dict(type='DefaultFormatBundle'),
+            dict(type='Collect', keys=['img'])
+        ])
+]
+
 data = dict(
     samples_per_gpu=2,
     workers_per_gpu=4,
@@ -27,12 +42,12 @@ data = dict(
         # task='Task1',
         ann_file=data_root + 'val/labelTxt/',
         img_prefix=data_root + 'val/images/',
-        pipeline=train_pipeline),
+        pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         # task='Task1',
-        ann_file=data_root + 'test/labelTxt/',
-        img_prefix=data_root + 'test/images/',
-        pipeline=train_pipeline))
+        ann_file=data_root + 'val/labelTxt/',
+        img_prefix=data_root + 'val/images/',
+        pipeline=test_pipeline))
 # evaluation = None
 evaluation = dict(interval=12)

@@ -228,5 +228,5 @@ def delta2bbox(rois,
     center_polys = center_polys * diag_scale_factor.repeat_interleave(
         2, dim=-1)
     rectpolys = center_polys + center
-    obboxes = poly2obb_le90(rectpolys, version)
+    obboxes = poly2obb_le90(rectpolys)
     return obboxes

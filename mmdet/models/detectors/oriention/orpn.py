@@ -155,5 +155,12 @@ class ORPN(BaseDetector):
         if kwargs is not None:
             kwargs.pop('score_thr', None)
             kwargs.pop('text_color', None)
-            kwargs['colors'] = kwargs.pop('bbox_color', 'green')
+            kwargs.pop('mask_color', None)
+
+            # 
+            kwargs.pop('bbox_color', None)
+            kwargs['colors'] = 'green'
+            # print(kwargs.keys())
+            # kwargs['colors'] = kwargs.pop('bbox_color', 'green')
+
         mmcv.imshow_bboxes(data, result, top_k=top_k, **kwargs)

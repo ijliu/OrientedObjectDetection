@@ -3,9 +3,80 @@ import numpy as np
 
 from .bbox_overlaps import bbox_overlaps
 
+import shapely.geometry as shgeo
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
 
+
+def obb2poly(obboxes):
+    center, w, h, theta = np.split(obboxes, (2, 3, 4), axis=-1)
+    Cos, Sin = np.cos(theta), np.sin(theta)
+
+    vector1 = np.concatenate(
+        [w/2 * Cos, -w/2 * Sin], axis=-1)
+    vector2 = np.concatenate(
+        [-h/2 * Sin, -h/2 * Cos], axis=-1)
+
+    point1 = center + vector1 + vector2
+    point2 = center + vector1 - vector2
+    point3 = center - vector1 - vector2
+    point4 = center - vector1 + vector2
+    return np.concatenate(
+        [point1, point2, point3, point4], axis=-1)
+
+def obb2hbb(obboxes):
+    center, w, h, theta = np.split(obboxes, (2, 3, 4), axis=-1)
+    Cos, Sin = np.cos(theta), np.sin(theta)
+    x_bias = np.abs(w/2 * Cos) + np.abs(h/2 * Sin)
+    y_bias = np.abs(w/2 * Sin) + np.abs(h/2 * Cos)
+    bias = np.concatenate([x_bias, y_bias], axis=-1)
+    return np.concatenate([center-bias, center+bias], axis=-1)
+
+def rbbox_overlaps(bboxes1, bboxes2, mode='iou', eps=1e-6):
+    rows = bboxes1.shape[0]
+    cols = bboxes2.shape[0]
+
+    if rows * cols == 0:
+        return np.zeros((rows, 1), dtype=np.float32)
+
+    hbboxes1 = obb2hbb(bboxes1)
+    hbboxes2 = obb2hbb(bboxes2)
+    hbboxes1 = hbboxes1[:, None, :]
+    lt = np.maximum(hbboxes1[..., :2], hbboxes2[..., :2])
+    rb = np.minimum(hbboxes1[..., 2:], hbboxes2[..., 2:])
+    wh = np.clip(rb - lt, 0, np.inf)
+    h_overlaps = wh[..., 0] * wh[..., 1]
+
+    polys1 = obb2poly(bboxes1)
+    polys2 = obb2poly(bboxes2)
+
+    sg_polys1 = [shgeo.Polygon(p) for p in polys1.reshape(rows, -1, 2)]
+    sg_polys2 = [shgeo.Polygon(p) for p in polys2.reshape(cols, -1, 2)]
+
+    overlaps = np.zeros(h_overlaps.shape)
+    for p in zip(*np.nonzero(h_overlaps)):
+        overlaps[p] = sg_polys1[p[0]].intersection(sg_polys2[p[-1]]).area
+
+    if mode == 'iou':
+        unions = np.zeros(h_overlaps.shape, dtype=np.float32)
+        for p in zip(*np.nonzero(h_overlaps)):
+            unions[p] = sg_polys1[p[0]].union(sg_polys2[p[-1]]).area
+    else:
+        unions = np.array([p.area for p in sg_polys1], dtype=np.float32)
+        
+        unions = unions[..., None]
+
+    unions = np.clip(unions, eps, np.inf)
+    outputs = overlaps / unions
+    if outputs.ndim == 1:
+        outputs = outputs[..., None]
+    return outputs
+
+
+
+
+
+    
 
 def _recalls(all_ious, proposal_nums, thrs):
 
@@ -68,17 +139,18 @@ def eval_rbbox_recall(det_results,
     
     all_ious = []
     for i in range(num_imgs):
-        img_proposal = det_results[i][..., :4]
+        img_proposal = det_results[i][..., :5]
+        gts = gt_bboxes[i][:, :5]
 
-        img_proposal = xywh2xyxy(img_proposal)
-        gts = xywh2xyxy(gt_bboxes[i][:,:4])
+        # img_proposal = xywh2xyxy(img_proposal)
+        # gts = xywh2xyxy(gt_bboxes[i][:,:4])
 
         prop_num = min(img_proposal.shape[0], proposal_nums[-1])
 
         if gts is None or gts.shape[0] == 0:
             ious = np.zeros((0, img_proposal.shape[0]), dtype=np.float32)
         else:
-            ious = bbox_overlaps(gts, img_proposal[:prop_num, :4])
+            ious = rbbox_overlaps(gts, img_proposal[:prop_num, :5])
         all_ious.append(ious)
     all_ious = np.array(all_ious)
     recalls = _recalls(all_ious, proposal_nums, iou_thrs)

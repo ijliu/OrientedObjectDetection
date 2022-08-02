@@ -6,7 +6,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadOrientedAnnotations', with_bbox=True, with_label=False),
     dict(type='RResize', img_scale=(1024, 1024), keep_ratio=True),
-    dict(type='RRandomFlip', flip_ratio=0.5),
+    dict(type='RRandomFlip', flip_ratio=[0.25, 0.25, 0.25],direction=['horizontal', 'vertical', 'diagonal']),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
@@ -22,6 +22,7 @@ test_pipeline = [
         transforms=[
             dict(type='RResize'),
             dict(type='Normalize', **img_norm_cfg),
+            dict(type='RRandomFlip'),
             dict(type='Pad', size_divisor=32),
             dict(type='DefaultFormatBundle'),
             dict(type='Collect', keys=['img'])
